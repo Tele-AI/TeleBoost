@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeleBoost: A Systematic Alignment Framework for High-Fidelity, Controllable, and Robust Video Generation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="container nav-content">
+            <div class="brand">TeleBoost</div>
+            <div class="nav-links">
+                <a href="#overview">Overview</a>
+                <a href="#comparison-section">Comparisons</a>
+                <a href="#citation">Citation</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header -->
+    <header class="header" id="overview">
+        <div class="container">
+            <h1 class="title">TeleBoost</h1>
+            <p class="subtitle">A systematic alignment framework for high-fidelity, controllable, and robust video generation</p>
+            <div class="author-line">
+                <span class="author-names">
+                    <a class="author-link" href="https://akira-l.github.io/" target="_blank" rel="noopener">Yuanzhi Liang</a>, Xuan'er Wu, Yirui Liu, Yijie Fang, Yizhen Fan, Ke Hao, Rui Li, Ruiying Liu, Ziqi Ni, Peng Yu, Yanbo Wang, Haibin Huang, Qizhen Weng, Chi Zhang, Xuelong Li
+                </span>
+                <span class="dot">•</span>
+                <span class="org"> Institute of Artificial Intelligence, China Telecom (TeleAI) </span>
+            </div>
+            <div class="links">
+                <a href="https://arxiv.org/abs/2602.07595" class="btn btn-primary" target="_blank" rel="noopener">Paper</a>
+                <a href="https://github.com/Tele-AI/TeleTron" class="btn btn-secondary btn-soon" target="_blank" rel="noopener">Code (Coming soon)</a>
+                <a id="contact-btn" data-email="liangyzh18@outlook.com" href="mailto:liangyzh18@outlook.com" class="btn btn-outline">Contact</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Project Overview -->
+    <section class="intro-section">
+        <div class="container">
+            <div class="content-stack">
+                <div class="content-block">
+                    <h2>Abstract</h2>
+                    <p>
+                        Post-training is the critical step that transforms a pretrained video generator into a production-ready model that follows instructions, remains controllable, and stays stable over long horizons. TeleBoost organizes supervised policy shaping, reward-driven reinforcement learning, and preference-based refinement into a stability-constrained optimization stack. Designed for real-world video-generation constraints—high rollout cost, temporally compounding failure modes, and heterogeneous, uncertain, often weakly discriminative feedback—the stack treats optimization as a staged, diagnosis-driven process to improve perceptual fidelity, temporal consistency, and prompt adherence while preserving controllability established at initialization.
+                    </p>
+                </div>
+                <div class="content-block">
+                    <h2>Key Contributions</h2>
+                    <ul class="contribution-list">
+                        <li>Systematic post-training stack combining supervised shaping, reward RL, and preference refinement under stability constraints.</li>
+                        <li>Design tailored to high-cost rollouts, temporal compounding errors, and heterogeneous/uncertain feedback signals.</li>
+                        <li>Staged, diagnosis-driven optimization that lifts fidelity, temporal consistency, and prompt following while retaining controllability.</li>
+                        <li>Unified recipe for robust, high-fidelity video generation ready for production deployment.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Comparison Section -->
+    <section class="video-section" id="comparison-section">
+        <div class="container">
+            <h2>Comparisons</h2>
+            <p class="section-lead">
+                Side-by-side comparisons across methods. Each case shows <span class="badge baseline">Baseline</span>,
+                <span class="badge dancegrpo">DanceGRPO</span>, and <span class="badge ours">TeleBoost</span>.
+            </p>
+
+            <div class="comparison-subsection" id="comparison-i2v">
+                <div class="subsection-header">
+                    <h3>Image-to-Video (I2V)</h3>
+                    <a class="subsection-link" href="#comparison-t2v">Jump to T2V →</a>
+                </div>
+                <div id="comparison-i2v-container" class="comparison-grid">
+                    <!-- I2V comparison videos will be loaded here by JavaScript -->
+                </div>
+            </div>
+
+            <div class="comparison-subsection" id="comparison-t2v">
+                <div class="subsection-header">
+                    <h3>Text-to-Video (T2V)</h3>
+                    <a class="subsection-link" href="#comparison-i2v">Back to I2V ↑</a>
+                </div>
+                <div id="comparison-t2v-container" class="comparison-grid">
+                    <!-- T2V comparison videos will be loaded here by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Citation -->
+    <section class="citation-section" id="citation">
+        <div class="container">
+            <h2>Citation</h2>
+            <pre class="bibtex"><code>
+            @misc{liang2026teleboostsystematicalignmentframework,
+                    title={TeleBoost: A Systematic Alignment Framework for High-Fidelity, Controllable, and Robust Video Generation}, 
+                    author={Yuanzhi Liang and Xuan'er Wu and Yirui Liu and Yijie Fang and Yizhen Fan and Ke Hao and Rui Li and Ruiying Liu and Ziqi Ni and Peng Yu and Yanbo Wang and Haibin Huang and Qizhen Weng and Chi Zhang and Xuelong Li},
+                    year={2026},
+                    eprint={2602.07595},
+                    archivePrefix={arXiv},
+                    primaryClass={cs.CV},
+                    url={https://arxiv.org/abs/2602.07595}, }
+            </code></pre>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 TeleBoost Team. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="videos-config.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
