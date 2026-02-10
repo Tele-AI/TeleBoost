@@ -4,6 +4,13 @@ This folder contains the complete project homepage. You can upload it directly t
 
 ## Deployment steps
 
+### Method 0 (Recommended): GitHub Actions → GitHub Pages
+1. Ensure these files exist in the repo root: `index.html`, `styles.css`, `main.js` (they do in this repo).
+2. Push to `main`.
+3. Go to Settings → Pages.
+4. Under “Build and deployment”, set **Source** to **GitHub Actions**.
+5. Wait for the workflow “Deploy static site to GitHub Pages” to finish (Actions tab).
+
 ### Method 1: Upload via GitHub UI
 1. Create a new repository (or use an existing one).
 2. Upload the contents of `homepage` to the repo.
