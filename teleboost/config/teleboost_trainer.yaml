@@ -1,0 +1,420 @@
+hydra:
+  searchpath:
+    # verl is installed via pip; resolve `ppo_trainer` defaults
+    # through the package's `verl.trainer.config` package, not a vendored verl/ dir.
+    - pkg://verl.trainer.config
+
+defaults:
+  - ppo_trainer
+  - _self_
+
+# Canonical model-family selector for new integrations. Existing
+# trainer/actor/data ``type`` keys remain accepted and are cross-checked so
+# legacy launch commands keep working without silently selecting a family.
+backend:
+  name: null
+
+trainer:
+  type: diffusion
+  use_rm: True
+
+reward:
+  # Upstream-style custom reward function used only when
+  # ``trainer.use_rm=false`` (no Role.RewardModel worker group is
+  # created). The default is a red-pixel smoke/example reward; real
+  # reward-fn runs should override path. The callable defaults to
+  # ``compute_score``; set ``name`` only when selecting a different
+  # function from the same module/file.
+  custom_reward_function:
+    path: pkg://teleboost.reward.providers.debug.red_intensity
+
+  reward_model:
+    enable: True
+    micro_batch_size_per_gpu: 1
+
+    strategy: diffusion
+
+    # Reward model type options:
+    # - single: Use a single model specified by model_name
+    # - joint: Use multiple reward models from 'joint.models'
+    type: single
+
+    # Model name for single mode (must be registered in RewardRegistry)
+    # Available: aesthetic, hps, raft, videoclip, videophy, qwen
+    model_name: hps
+
+    # Explicit rollout-to-reward data adapter. Use ``video_vlm`` for Qwen-VL
+    # served by verl's RewardModelManager; leave empty for registry-backed
+    # scalar/video reward models served by Role.RewardModel workers.
+    adapter: ""
+
+    # Reward-model weights dir (HF dir for the vLLM judge). Flat key — the same
+    # one verl's RewardModelManager reads; 8B vs 32B is just a different dir.
+    model_path: ""
+
+    # Model-specific extra configuration
+    extra_config:
+      model_type: ViT-H-14  # Example for HPS
+
+    # Whether to normalize rewards
+    normalize: true
+
+    # ============================================================
+    # DYNAMIC JOINT REWARD CONFIGURATION (used when type: joint)
+    # ============================================================
+    # This section configures reward heads. JointRewardModelWorker executes
+    # each head and returns raw <name>_rewards; the trainer driver computes
+    # per-head advantages, dynamic reward_weights, final rewards, and final
+    # advantages. The per-head weight below is only the static reward-space
+    # diagnostic view; optimization uses advantage-space weights.
+    joint:
+      # Dictionary of reward models to use (keyed by model name)
+      # This allows direct access via Hydra overrides, e.g.:
+      #   reward.reward_model.joint.models.aesthetic.extra_config.clip_model_path=/new/path
+      # Each model MUST have a registered name in the providers/ registry
+      # You can add/remove models freely - just ensure they are registered
+      #
+      # Dispatch design: every reward model runs on every GPU (dp_fraction=1.0,
+      # rank_offset=0). Reward workers co-locate with the actor on each GPU and
+      # share thread budget via CUDA MPS (per-model `mps_percentage` below).
+      # The earlier disjoint scheme (dp_fraction=0.25 + rank_offset=0/2/4/6) was
+      # never wired up correctly: `_allgather_rewards` calls `dist.all_gather`
+      # on the default world process group, so any dp_size != world_size triggers
+      # `expected length=world_size, got=dp_size`. Until the codebase grows real
+      # sub-group support, all-active is the only correct dispatch.
+      models:
+        aesthetic:
+          enabled: true
+          weight: 1.0
+          dp_fraction: 1.0       # all-active: every reward on every GPU
+          rank_offset: 0
+          mps_percentage: 20     # 20% of GPU threads
+          normalize: true
+          model_path: ""
+          extra_config:
+            # Set these to local checkpoint paths before training, e.g. via
+            # ``+reward.reward_model.joint.models.aesthetic.extra_config.clip_model_path=$REWARD_MODELS_DIR/aesthetic/ViT-L-14.pt``
+            clip_model_path: ""
+            aes_model_path: ""
+
+        raft:
+          enabled: true
+          weight: 1.0
+          dp_fraction: 1.0
+          rank_offset: 0
+          mps_percentage: 30
+          normalize: true
+          model_path: ""           # e.g. $REWARD_MODELS_DIR/raft/raft-things.pth
+          extra_config:
+            stride: 1
+            iters: 20
+
+        # NOTE: VideoCLIP-XL code/weights are NOT shipped with TeleBoost
+        # (upstream is CC-BY-NC-SA-4.0, non-commercial). Place a
+        # user-supplied copy under third_party/VideoCLIP_XL/ before using
+        # this model — see teleboost/reward/providers/videoclip.py.
+        videoclip:
+          enabled: true
+          weight: 1.5
+          dp_fraction: 1.0
+          rank_offset: 0
+          mps_percentage: 25
+          normalize: true
+          model_path: ""           # e.g. $REWARD_MODELS_DIR/VideoCLIP-XL/VideoCLIP-XL.bin
+          extra_config:
+            num_frames: 8
+            target_size: 224
+
+        videophy:
+          enabled: true
+          weight: 0.8
+          dp_fraction: 1.0
+          rank_offset: 0
+          mps_percentage: 25
+          normalize: true
+          model_path: ""           # e.g. $REWARD_MODELS_DIR/videocon_physics
+          extra_config:
+            max_length: 256
+
+        # Example: Adding HPS model (disabled by default)
+        # hps:
+        #   enabled: false
+        #   weight: 1.0
+        #   dp_fraction: 1.0
+        #   rank_offset: 0
+        #   mps_percentage: 15
+        #   model_path: ""         # e.g. $REWARD_MODELS_DIR/hps/hpsv2.pt
+        #   extra_config:
+        #     model_type: ViT-H-14
+
+    # ``reward_manager`` keys upstream's experimental reward_manager
+    # registry, consumed only by RewardLoopWorker actors at their init —
+    # and TeleBoost never spawns those (patches/diffusion_async_bypass
+    # no-ops ``_init_reward_loop_workers``; the VLM judge path goes
+    # through the patched ``RewardLoopManager.compute_rm_score`` instead,
+    # reading the rollout video from ``extra_info["video_path"]`` and
+    # POSTing the colocated vLLM router directly). fit()'s own reward
+    # dispatch lives in ``_compute_*_reward``; its ``use_rm=false`` path
+    # loads ``reward.custom_reward_function`` directly.
+    reward_manager: null
+
+    # Rollout model config.
+    rollout:
+      # actor_rollout_ref.rollout.name: hf/vllm/sglang.
+      name: vllm
+
+      # typically the same as data max prompt length
+      prompt_length: ${data.max_prompt_length}
+
+      # typically the same as data max response length
+      response_length: ${data.max_response_length}
+
+      # for vllm rollout
+      # Rollout model parameters type. Align with actor model's FSDP/Megatron type.
+      dtype: bfloat16
+
+      # Fraction of GPU memory used by vLLM/SGLang for KV cache.
+      gpu_memory_utilization: 0.5
+
+      # Whether to disable CUDA graph. Default True to allow cache freeing.
+      enforce_eager: True
+
+      # Whether to free engine KVCache after generation. Set enforce_eager=True when enabled.
+      free_cache_engine: True
+
+      # Which loader to use for rollout model weights: dummy_dtensor, hf, megatron, etc.
+      # safetensors (for huge model, and set use_shm=True); dummy_dtensor: randomly init model weight
+      load_format: dummy_dtensor
+
+      # TP size for rollout. Only effective for vLLM.
+      tensor_model_parallel_size: 4
+
+      # max number of tokens in a batch
+      max_num_batched_tokens: 8192
+
+      # max length for rollout
+      max_model_len: 1024
+
+      # max length of sequences
+      max_num_seqs: 1024
+
+      # disable logging statistics
+      disable_log_stats: True
+
+      # may get higher throughput when set to True. When activated, Please increase max_num_batched_tokens or decrease max_model_len.
+      enable_chunked_prefill: True
+
+data:
+  type: diffusion
+
+actor_rollout_ref:
+  type: diffusion
+  model:
+    vae_model_path: data/flux
+  
+  actor:
+    timestep_fraction: 0.6
+    clip_range: 1e-4
+    adv_clip_max: 5.0
+    eta: 0.3
+    # Antithetic (common-random-number) SDE rollout noise: within each prompt's
+    # n_resp responses, pair them with ±ε to cancel the high-variance adv·ε term
+    # in the GRPO score-function gradient (root-fix for "small batch won't train").
+    # Requires even rollout.n and ulysses_sequence_parallel_size=1. Default off =
+    # bit-identical independent-ε rollout.
+    antithetic_noise: false
+    max_grad_norm: 1.0
+
+    # Upstream v0.7.1 ``actor.optim`` schema declares ``warmup_style: null``
+    # (key present, value None) — so ``optim_config.get("warmup_style",
+    # "constant")`` resolves to None rather than the fallback. Pin it
+    # explicitly here. ``fsdp_worker._build_model_optimizer``
+    # only knows ``constant`` / ``cosine``; ``constant`` matches v0.4
+    # behaviour.
+    optim:
+      warmup_style: constant
+
+    # SDE σ_t form (DanceGRPO arxiv 2505.07818 vs Flow-GRPO arxiv 2505.05470).
+    # ``dancegrpo`` uses constant-η noise (current upstream behaviour);
+    # ``flow_grpo`` uses η·√(t/(1−t)) per Flow-GRPO upstream
+    # ``sd3_sde_with_logprob.py``.  See ``algorithms/sigma_schedule.py``
+    # for the registry of SDE-step formulas.  ``grpo_guard.grad_reweight_form``
+    # below defaults to (null =) THIS value, since the paper ties the reweight δ
+    # to the SDE kernel's σ_t — keep them matched (override only for ablation).
+    sigma_form: dancegrpo
+
+    # GRPO-Guard (paper arxiv 2510.22319).  RatioNorm and grad-reweight are
+    # exposed as separable levers per the paper's §4.3 ablation
+    # (Mean-revised / RatioNorm / GRPO-Guard combined).  See
+    # ``algorithms/grpo_guard.py`` for the formulas.
+    grpo_guard:
+      enable: false
+      ratio_norm: false           # Eq. 8: rewrite policy ratio with Δμ-bias term
+      grad_reweight: false        # Eq. 12: rescale policy loss by δ = β/dt
+      # Must pair with sigma_form above: the paper (arxiv 2510.22319 §3.2.3)
+      # derives δ from σ_t. dancegrpo σ=η → δ=(1+η²(1-t)/(2t))/dt; flow_grpo
+      # σ=η√(t/(1-t)) → δ=1/dt. Keep this in sync with sigma_form.
+      grad_reweight_form: dancegrpo
+      ratio_norm_eps: 1e-6
+      grad_reweight_eps: 1e-6     # also doubles as the t-floor for the dancegrpo form
+
+    # TempFlow-GRPO (paper arxiv 2508.04324). Two separable levers, both default
+    # off (= baseline GRPO bit-for-bit). Math lives in
+    # ``teleboost/algorithms/tempflow*.py``; recipe launcher at
+    # ``recipes/wan_tempflow_fsdp/run.sh``.
+    tempflow:
+      # Eq. 8 per-step weight Norm(σ_t·√Δt), mean-1 across timesteps (realigns
+      # optimisation pressure with each step's actual exploration capacity).
+      # Needs ``sigma_form: flow_grpo`` above for the paper's σ_t; a constant-σ
+      # form degenerates to Norm(√Δt) and warns. 'none' | 'tempflow_noise_norm'.
+      noise_reweight_mode: none
+      # Trajectory branching (Def. 1 / Thm. 1 / Eq. 3): ODE → one SDE step at the
+      # branch step k → ODE to x_0; the final-video reward becomes the process
+      # reward for step k, with a group-relative advantage per branch point. The
+      # rollout emits ONE DataProto row per branch. Default off leaves the normal
+      # rollout/advantage path byte-for-byte unchanged.
+      branch:
+        enable: false
+        branch_points: early_k    # 'all' | 'early_k' | 'sampled_k' (driver: all/early_k)
+        early_k: 1                # # high-noise steps to branch at (branch_points=early_k)
+        exploration_k: 2          # SDE branches drawn per (prompt, branch point)
+        reward_target: final_image
+
+    # GRPO rollout-training mismatch diagnostics. These only log metrics
+    # from the already-computed old/new diffusion log-probs and policy
+    # ratio; they do not change sampling or the policy loss.
+    mismatch_diagnostics:
+      enable: true
+      per_timestep: true
+      max_timestep_logs: 16
+      eps: 1e-8
+
+  rollout:
+    # Upstream v0.7.1 rollout.yaml declares ``name: ???`` (mandatory). The
+    # teleboost diffusion worker doesn't drive a vLLM/SGLang/HF rollout
+    # engine — it runs its own scheduler sampler — but the schema still
+    # demands a value. Set a non-"hf" sentinel so the worker's
+    # ``rollout.name == "hf"`` gate (fsdp_worker._build_model_optimizer)
+    # stays on the diffusion path.
+    name: diffusion
+    ulysses_sequence_parallel_size: 1.0
+
+  video_fps: 25
+  guide_scale: 5.0
+  wan22_boundary: 0.9         # wan2.2 dual-model sigma split; also picks the (low, high)
+                              # guide_scale pair per step. ONE home: rollout + model builder
+                              # read this key, fsdp_worker's whitelist propagates it to the
+                              # actor's recompute (all three must agree or the GRPO ratio
+                              # compares two different effective policies).
+  h: 720
+  w: 720
+  num_frames: 1
+  sampling_steps: 16
+  shift: 8.0
+  timestep_fraction: 0.6
+  init_same_noise: True
+
+  # Tokenizer subpath, relative to ``actor_rollout_ref.model.path``.
+  # Distinct from verl's ``actor_rollout_ref.model.tokenizer_path`` (which
+  # is a full HF tokenizer path, defaulting to ``null`` in
+  # ``hf_model.yaml``); keeping this at recipes level under a different
+  # key prevents verl's null from clobbering us.
+  tokenizer_subpath: google/umt5-xxl
+
+  # VAE configuration
+  # vae_stride: Spatial/temporal compression ratio [temporal, height, width]
+  vae_stride: [4, 8, 8]
+  # latent_channels: Number of channels in VAE latent space
+  latent_channels: 16
+
+  pixel_weight:
+    # VIPO (paper arxiv 2511.18719).  Per-pixel allocation map M(p)
+    # derived from DINOv2 PCA; trainer multiplies the scalar advantage by
+    # M(p) to form a dense advantage A^p = M(p) · A.  See
+    # ``recipes/wan_vipo_fsdp/algorithm.py`` for in-house design choices (pca_method,
+    # sigma).
+    enable: false
+    model_path: "facebook/dinov2-large"
+    pca_method: weighted   # weighted | first_pc | average  (in-house pooling)
+    sigma: 1.0             # in-house Gaussian smoothing kernel σ
+    # In-house guard: dense KL loss with VIPO is implemented and tested,
+    # but kept behind an explicit opt-in to surface accidental
+    # combinations (the wrong combination silently mixes scalar KL with
+    # dense advantage and hurts training).
+    kl_loss_compatible: false
+
+  # if fast flow-grpo
+  flow_grpo:
+    enable: true
+    sde_window_size: 2
+    sde_window_range: [0, "${actor_rollout_ref.sampling_steps}"]
+    shuffle_timesteps: true
+
+  # if standard flow-grpo
+  # flow_grpo:
+  #   enable: true
+  #   sde_window_size: 0
+
+# ============================================================================
+# BGPO: Bayesian-Prior Group Optimization (arxiv 2511.18919)
+# ----------------------------------------------------------------------------
+# Follows the reference implementation. Two branches share the `enable` flag,
+# both anchored on a per-prompt `prior` (required in the dataset):
+#   CRT (use_rerange)                  — binary prior-threshold rearrangement:
+#       R̃ = [a·(R − prior) + 𝟙{R > prior}] / (1 + exp(−R/τ)) · R
+#       (overwrites the group rewards in place; RAS then reads R̃)
+#   RAS (adaptive_weight_method=bayes) — Bayesian reliability weight:
+#       advantage *= clamp(1 + α·(w − 1), min_adv_scale, max_adv_scale),
+#       w rising with the group posterior's probability of beating the prior.
+# When `enable: false`, BGPO is a no-op and the trainer runs the original
+# baseline path bit-for-bit.
+# ============================================================================
+algorithm:
+  # Advantage group-std floor: per-prompt groups whose reward std falls below
+  # this get ZERO advantages instead of z-scored ones.  The GRPO z-score
+  # divides the group std out, so a group separated only by float noise (the
+  # reward-collapse regime — a per-prompt reward gives within-group std ~0,
+  # well below cross-prompt spread) becomes ±O(1) random-sign advantages =
+  # pure gradient noise.  0.0 = off (baseline behaviour, bit-identical).
+  min_group_std: 0.0
+
+  bgpo:
+    enable: false
+
+    # --- CRT: reward rearrangement (binary prior-threshold) ------------
+    # R̃ = [a·(R − R_prior) + 𝟙{R > R_prior}] / (1 + exp(−R/τ)) · R
+    use_rerange: false
+    rerange_a: 50.0                # a — slope on the (R − R_prior) term
+    rerange_temperature: 5.0       # τ — sigmoid-gate temperature (> 0)
+
+    # --- RAS: adaptive advantage scaling (Bayesian reliability) --------
+    adaptive_weight_method: bayes  # bayes | no
+    prior_var: 1.0                 # Normal-prior variance (shrinkage strength)
+    bayes_weight_range: [0.5, 1.5] # (w_min, w_max) bounds on the base weight
+
+    # Loss coupling with adaptive weight:
+    # `advantage *= clamp(1 + α · w, min_adv_scale, max_adv_scale)`.
+    regularization_term_alpha: 1.0
+    min_adv_scale: 0.01
+    max_adv_scale: 10.0
+
+    # Numerical clamp on the exponent in the CRT sigmoid gate.
+    exp_clamp: 30.0
+
+# TransferQueue (https://github.com/Ascend/TransferQueue) — Phase 2 of
+# the v0.7.1 upgrade.
+#
+# Wired the same way upstream verl v0.7.1 does
+# (``verl/trainer/main_ppo.py``): a top-level ``transfer_queue.enable``
+# flag. When True we inject ``TRANSFER_QUEUE_ENABLE=1`` into Ray's
+# runtime_env so every actor/worker process picks it up; the
+# ``transfer_queue`` package handles its own controller / storage
+# bootstrap from there. Upstream stops at the toggle — teleboost goes
+# one step further and uses ``transfer_queue.kv_put`` /
+# ``kv_batch_get`` to shuttle the rollout ``video_frames`` tensor
+# peer-to-peer (rollout actor → trainer driver) instead of round-
+# tripping it through ``ray.get(DataProto)``. ``partition_id`` keys
+# the kv namespace; ``enable: false`` keeps the DataProto-only path.
+transfer_queue:
+  enable: false
+  partition_id: teleboost.rollout.video_frames

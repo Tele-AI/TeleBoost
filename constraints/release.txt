@@ -1,0 +1,7 @@
+# Artifact-build tools validated by the release contract.
+-c torch2.9-cu128.txt
+build==1.5.1
+hatchling==1.31.0
+setuptools==80.9.0
+twine==6.2.0
+wheel==0.46.3

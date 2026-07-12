@@ -1,0 +1,207 @@
+# -------------------------------
+# build-system
+# -------------------------------
+[build-system]
+requires = [
+    "setuptools>=77.0,<81",
+    "packaging>=24.2",
+    "wheel>=0.46,<0.47"
+]
+build-backend = "setuptools.build_meta"
+
+# -------------------------------
+# project (PEP 621 metadata)
+# -------------------------------
+[project]
+name = "teleboost"
+version = "0.1.0"
+description = "TeleBoost: reinforcement learning and distributed training for Wan video generation"
+license = "Apache-2.0"
+license-files = [
+    "LICENSE",
+    "NOTICE",
+    "THIRD_PARTY_PROVENANCE.md",
+    "LICENSES/Megatron-LM-BSD-3-Clause.txt",
+    "LICENSES/OpenCLIP-MIT.txt",
+]
+readme = {file = "README.md", content-type = "text/markdown"}
+requires-python = ">=3.11"
+authors = [{name = "TeleBoost contributors"}]
+urls = {Homepage = "https://github.com/Tele-AI/TeleBoost"}
+
+# Dependency-light runtime shared by TeleBoost programs. PyTorch and `verl` are
+# intentionally NOT listed: the CUDA-matched PyTorch stack must be installed
+# first, while verl is installed from constraints/upstreams/verl.txt with `--no-deps`.
+# Training and Wan dependencies live in named extras below; the tested package
+# versions are constrained by constraints/torch2.9-cu128.txt.
+dependencies = [
+    "einops>=0.8,<0.9",
+    "numpy>=1.26,<2",
+    "omegaconf>=2.3,<3",
+    "packaging>=20.0",
+    "Pillow",
+    "safetensors",
+    "scipy",
+    "tqdm",
+]
+
+[project.scripts]
+teleboost-prepare-wan-data = "teleboost.datasets.preprocessing.wan:main"
+teleboost-convert-wan-to-teletron = "teleboost.cli.convert_checkpoint:main"
+
+[project.optional-dependencies]
+train = [
+    # Mirrors verl 0.7.1's runtime requirements because verl itself is
+    # installed with --no-deps.  Bounds below protect compatibility-sensitive
+    # APIs; the constraints file supplies the fully tested versions.
+    "accelerate",
+    "aiohttp",
+    "codetiming",
+    "datasets",
+    "dill",
+    "hydra-core",
+    "pandas",
+    "peft",
+    "pyarrow>=19.0.0",
+    "pybind11",
+    "pylatexenc",
+    "ray[default]>=2.41.0",
+    "tensorboard",
+    "tensordict==0.10.0",
+    "torchdata",
+    "transformers>=4.57.6,<5",
+    "wandb",
+]
+wan = [
+    "decord2>=3.4,<4",
+    "diffusers>=0.37.0,<0.40",
+    "easydict>=1.13",
+    "ftfy>=6.3",
+    "imageio",
+    "imageio-ffmpeg",
+    "opencv-python-headless>=4.10.0.84",
+    "PyYAML>=6",
+    "regex",
+    "sentencepiece",
+    "torchvision==0.24.1",
+]
+dpo = ["deepspeed==0.18.6", "megatron-core==0.16.1", "psutil>=5.9"]
+flash = ["flash-attn==2.8.3.post1"]
+# HPSv2 is intentionally not resolved here: its historical dependency pins
+# conflict with modern protobuf/pytest. INSTALL.md documents the safe no-deps
+# install used by the runtime's explicit optional-import error.
+reward = [
+    "aiohttp",
+    "opencv-python-headless>=4.10.0.84",
+    "timm",
+]
+vllm = ["tensordict==0.10.0", "vllm==0.14.0", "torch==2.9.1"]
+# Kept as an upstream-verl compatibility profile.  Unlike the vLLM profile,
+# this has not been installed or runtime-validated in the reference pod.
+sglang = ["tensordict==0.10.0", "sglang[srt,openai]==0.5.6", "torch-memory-saver>=0.0.5", "torch==2.9.1"]
+test = ["pytest", "pre-commit", "py-spy", "ruff"]
+release = [
+    "build>=1.2",
+    "hatchling==1.31.0",
+    "setuptools>=77,<81",
+    "twine>=6",
+    "wheel>=0.46,<0.47",
+]
+
+# -------------------------------
+# tool.ruff - Linting configuration
+# -------------------------------
+[tool.ruff]
+# Vendored upstream code is excluded on purpose: reformatting it would
+# destroy diffability against upstream and falsify the NOTICE claim that
+# modifications are marked in file headers.
+exclude = ["third_party", "build", "outputs*", "videos", ".venv", "venv"]
+# Note: While the formatter will attempt to format lines such that they remain within the line-length,
+# it isn't a hard upper bound, and formatted lines may exceed the line-length.
+line-length = 300 # TODO: Reduce this to a more reasonable value
+
+[tool.ruff.lint]
+isort = {known-first-party = ["teleboost"]}
+
+[tool.ruff.lint.per-file-ignores]
+# Re-export hubs: unused-import IS the point (F403: star re-export idiom).
+"**/__init__.py" = ["F401", "F403"]
+# Vendored-derived CLIP file (Alibaba lineage): keeps incomplete upstream
+# branches (text tower, sora pretrained path) as-is for diffability.
+"teleboost/models/wan/teletron/models/dit/wan_teletron_video_image_encoder.py" = ["F811", "F821"]
+# VAE ports keep upstream DiffSynth signatures (read-only list defaults).
+"teleboost/models/wan/teletron/models/dit/diffsynth_wan_video_vae.py" = ["B006"]
+"teleboost/models/wan/teletron/models/dit/wan_teletron_video_vae2_2.py" = ["B006"]
+"teleboost/models/wan/teletron/models/dit/wan_teletron_video_vae.py" = ["B006"]
+# c.f. https://github.com/vllm-project/vllm/blob/ce8d6b75fc0586045df75ee1568a5b5f9957251b/pyproject.toml
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # isort
+    "I",
+    "G",
+]
+ignore = [
+    # star imports
+    "F405", "F403",
+    # lambda expression assignment
+    "E731",
+    # Loop control variable not used within loop body
+    "B007",
+    # f-string format
+    "UP032",
+    # `.log()` statement uses f-string
+    "G004",
+]
+
+# -------------------------------
+# tool.setuptools - Additional config
+# -------------------------------
+[tool.setuptools]
+# True means `setuptools` will attempt to include all relevant files in package_data automatically.
+# This corresponds to `include_package_data=True` in setup.py.
+include-package-data = true
+
+
+[tool.setuptools.package-dir]
+"" = "."
+
+# Root-wheel scope.  Optional vendored backends keep their own licenses and are
+# distributed separately; in particular, never let namespace-package discovery
+# pull ``third_party/`` or diagnostics/smoke subtrees into the Apache-2.0 root
+# wheel. Source-checkout release/diagnostic tools are not importable packages.
+[tool.setuptools.packages.find]
+include = ["teleboost*"]
+exclude = ["third_party*", "tools.diagnostics*", "tools.smoke*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.yaml", "*.sh", "*.json", "*.md", "*.txt", "LICENSE", "NOTICE"]
+
+[tool.pytest.ini_options]
+markers = [
+    "heavy_env: selected only by --profile=heavy with an explicit --heavy-lane",
+    "training_env: selected only by --profile=training",
+]
+# Warning policy: TeleBoost warnings fail by default.  Only known third-party
+# environment warnings from the pinned stack are allowed here.
+filterwarnings = [
+    "error",
+    "ignore:Transformer Engine and Apex are not installed[.] Falling back to .*:UserWarning:megatron[.]core[.]distributed[.]fsdp[.]src[.]megatron_fsdp[.]mixed_precision",
+    "ignore:Transformer Engine and Apex are not installed[.] Falling back to Torch optimizers[.]:UserWarning:megatron[.]core[.]optimizer",
+    "ignore:Transformer Engine and Apex are not installed[.] Falling back to .*:UserWarning:megatron[.]core[.]optimizer[.]optimizer",
+    "ignore:Transformer Engine and Apex are not installed[.] Falling back to .*:UserWarning:megatron[.]core[.]optimizer[.]clip_grads",
+    "ignore:Apex is not installed[.] Falling back to Torch Norm:UserWarning:megatron[.]core[.]models[.]backends",
+    "ignore:Apex is not installed[.] Falling back to Torch Norm:UserWarning:megatron[.]core[.]models[.]gpt[.]gpt_layer_specs",
+    "ignore:Ray state API is no longer experimental[.].*:DeprecationWarning:ray[.]util[.]state[.]util",
+    "ignore:builtin type SwigPyPacked has no __module__ attribute:DeprecationWarning",
+    "ignore:builtin type SwigPyObject has no __module__ attribute:DeprecationWarning",
+    "ignore:builtin type swigvarlink has no __module__ attribute:DeprecationWarning",
+    "ignore:The following imports from `dynamic_context[.]py` will be removed:DeprecationWarning:megatron[.]core[.]inference[.]contexts",
+    "ignore:The 'megatron[.]core[.]transformer[.]custom_layers[.]transformer_engine':DeprecationWarning:megatron[.]core[.]transformer[.]multi_latent_attention",
+]

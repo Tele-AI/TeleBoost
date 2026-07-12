@@ -1,0 +1,5 @@
+# Wan GRPO legacy/default SDE semantics.
+program: wan.grpo.fsdp
+overrides:
+  actor_rollout_ref.actor.sigma_form: dancegrpo
+  actor_rollout_ref.actor.grpo_guard.grad_reweight_form: dancegrpo

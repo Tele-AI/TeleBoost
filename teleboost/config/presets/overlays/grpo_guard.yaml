@@ -1,0 +1,12 @@
+# Composable GRPO-Guard overlay. Can be applied on top of a compatible program preset.
+#
+# clip_range is deliberately NOT overridden, but the paper's working point is
+# NOT the baseline's: RatioNorm compresses the log-ratio by the
+# sigma_t*sqrt(dt) outer scale, so the paper pairs it with clip 2e-6
+# (PickScore 4e-6) vs the DanceGRPO/Flow-GRPO baseline 1e-4. Keeping 1e-4
+# under RatioNorm makes regulated clipping rarely trigger — sweep clip_range
+# for your model before trusting guard ablations.
+overrides:
+  actor_rollout_ref.actor.grpo_guard.enable: true
+  actor_rollout_ref.actor.grpo_guard.ratio_norm: true
+  actor_rollout_ref.actor.grpo_guard.grad_reweight: true

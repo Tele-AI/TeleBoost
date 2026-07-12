@@ -1,0 +1,56 @@
+TeleBoost
+Copyright 2025-2026 TeleAI and the TeleBoost contributors
+
+TeleBoost-authored code is distributed under the Apache License, Version 2.0.
+The distribution also contains adapted portions of the following projects.
+Their original notices and file-level headers remain authoritative.
+
+NVIDIA Megatron-LM
+  Copyright (c) 2019-2025, NVIDIA CORPORATION. All rights reserved.
+  Source: https://github.com/NVIDIA/Megatron-LM
+  Baseline: tag core_v0.16.1, commit
+  55ac7082517c3878ae653c07c09c534b8aed49f6.
+  License: BSD-3-Clause; see LICENSES/Megatron-LM-BSD-3-Clause.txt.
+  TeleBoost paths include teleboost/engines/teletron/ and selected files under
+  teleboost/training/ and teleboost/training/checkpoint/.
+
+OpenCLIP
+  Copyright (c) 2012-2021 the OpenCLIP authors listed in the accompanying
+  license text.
+  Source: https://github.com/mlfoundations/open_clip
+  Reconciliation baseline: tag v2.7.0, commit
+  ea7718f927b84e1b46ce057d3eae5ca4c9c41434.
+  License: MIT; see LICENSES/OpenCLIP-MIT.txt.
+  TeleBoost path: teleboost/models/offline_clip.py.
+
+ModelScope DiffSynth-Studio
+  Source: https://github.com/modelscope/DiffSynth-Studio
+  Reconciliation baselines: flow scheduler commit
+  451aab01161496fd68510e7682306eaf54ff97f2 and Wan VAE commit
+  5be5c32fe4b240547a288afa4c29e3f81b6ef881.
+  License: Apache-2.0.
+  TeleBoost paths include teleboost/models/flow_match.py and
+  teleboost/models/wan/teletron/models/dit/diffsynth_wan_video_vae.py.
+
+Tele-AI TeleTron
+  Source: https://github.com/Tele-AI/TeleTron
+  Reconciliation baseline: commit
+  5fb0431bd9a42a14cf4ee5768d0a0482828e1ff5.
+  License: Apache-2.0.
+  TeleBoost paths include teleboost/engines/teletron/ and
+  teleboost/models/wan/teletron/.
+
+Alibaba Wan
+  Source: https://github.com/Wan-Video/Wan2.1
+  Vendored-runtime baseline: commit
+  204f899b6436fe2e1705a0b67c464b30b8137799, with local modifications.
+  License: Apache-2.0.
+  Wan-derived model ports live under teleboost/models/wan/teletron/.
+
+The source checkout also contains optional vendored components under
+third_party/. They are excluded from the TeleBoost root wheel and sdist and
+remain governed by the license files in their own directories. Exclusion from
+the Python artifact does not grant permission to redistribute those source
+trees separately; consult THIRD_PARTY_PROVENANCE.md first.
+
+This NOTICE is informational and does not modify any license.

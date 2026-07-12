@@ -1,0 +1,6 @@
+# TeleBoost's runtime patch layer and worker APIs target this immutable release.
+# Keep tools/install_verl.sh and compatibility tests in sync when bumping.
+VERSION=0.7.1
+UPSTREAM_TAG=v0.7.1
+UPSTREAM_COMMIT=bec9ef7
+PIP_INSTALL=python -m pip install --no-deps verl==0.7.1

@@ -1,0 +1,11 @@
+# Compatibility entry point for a source checkout.  Dependency declarations
+# live in pyproject.toml; tested versions live in the constraints file.  This
+# avoids maintaining a second, contradictory hand-written package list.
+#
+# Run from the repository root after installing the CUDA-matched PyTorch stack
+# and the verl pin in constraints/upstreams/verl.txt. Hardware-specific extras
+# (FlashAttention, vLLM, and SGLang) are documented in INSTALL.md.
+# Hopper-only FlashAttention-3 is pinned separately in
+# constraints/upstreams/flash-attn-3.txt and installed by tools/install_flash_attn_3.sh.
+-c constraints/torch2.9-cu128.txt
+-e .[train,wan,dpo,reward]

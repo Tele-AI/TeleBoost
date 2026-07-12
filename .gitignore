@@ -1,0 +1,31 @@
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.DS_Store
+
+# Local training and profiling artifacts
+outputs/
+outputs.*/
+videos/
+checkpoints/
+tensorboard/
+logs/
+wandb/
+ray_results/
+*.prof
+*.trace.json
+
+# Model and dataset payloads should live outside source control
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+data/processed/

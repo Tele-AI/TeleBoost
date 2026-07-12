@@ -1,0 +1,5 @@
+# TeleBoost DPO imports megatron.training, which is not shipped by the
+# megatron-core wheel. Use this exact upstream source revision.
+UPSTREAM_URL=https://github.com/NVIDIA/Megatron-LM.git
+UPSTREAM_TAG=core_v0.16.1
+UPSTREAM_COMMIT=55ac7082517c3878ae653c07c09c534b8aed49f6

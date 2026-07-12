@@ -1,0 +1,44 @@
+# CPU-only algorithm-layer tests. No GPU, no verl, no megatron: the package
+# init gates every backend (see teleboost/__init__ and teleboost/patches),
+# so the pure algorithm layer imports and tests stand alone. The file list
+# below is the no-backend subset; backend-coupled tests (dp_actor / DPO /
+# CP trees) only run on GPU nodes via the training/heavy pytest profiles.
+name: cpu-tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  algorithms:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.12"
+      - name: Install CPU deps (torch-cpu + test tooling only)
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          pip install pytest numpy omegaconf safetensors tensordict
+          pip install --no-deps -e .
+      - name: Core collection gate
+        run: |
+          python -m pytest -q --collect-only tests/
+      - name: Run the no-backend test subset
+        run: |
+          python -m pytest -q \
+            tests/architecture \
+            tests/test_antithetic_variance.py \
+            tests/test_branched_advantage.py \
+            tests/test_diffusion_rl_common.py \
+            tests/test_grpo_advantage.py \
+            tests/test_grpo_guard.py \
+            tests/test_noise_weight.py \
+            tests/test_sigma_schedule.py \
+            tests/test_solver_contract.py \
+            tests/test_trajectory_branch.py \
+            tests/test_uid_broadcast.py \
+            tests/test_wan_family.py

@@ -1,0 +1,4 @@
+# TempFlow per-step noise weighting overlay.
+overrides:
+  actor_rollout_ref.actor.sigma_form: flow_grpo
+  actor_rollout_ref.actor.tempflow.noise_reweight_mode: tempflow_noise_norm

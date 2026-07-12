@@ -1,0 +1,5 @@
+# Wan GRPO with Flow-GRPO SDE semantics.
+program: wan.grpo.fsdp
+overrides:
+  actor_rollout_ref.actor.sigma_form: flow_grpo
+  actor_rollout_ref.actor.grpo_guard.grad_reweight_form: flow_grpo

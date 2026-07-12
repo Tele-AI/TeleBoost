@@ -1,0 +1,186 @@
+# TeleBoost-DPO config — Wan video diffusion under the verl recipe
+# path. ``teleboost.programs.wan.dpo.main`` registers the ``video_diffusion`` engine into
+# verl's EngineRegistry and drives one of three modes (train / smoke /
+# precision replay) selected via ``trainer.*`` keys.
+
+defaults:
+  - model@model: hf_model
+  - engine@engine: megatron
+  - optim@optim: megatron
+  - profiler@profiler: profiler
+  - _self_
+
+# Tell hydra to also search verl's packaged config groups
+# (verl/trainer/config/{engine,optim,model,profiler}/*.yaml). The
+# default search path is just this yaml's directory, which has no such
+# subdirs — without the pkg:// entry below the `defaults:` group lookups
+# above fail with "Could not find 'profiler/profiler'". Verl's own
+# trainers don't need this because their @hydra.main(config_path=
+# "config") yamls live next to the config groups inside the verl package.
+hydra:
+  searchpath:
+    - pkg://verl.trainer.config
+
+# ``video_diffusion`` is registered into verl's EngineRegistry by
+# ``teleboost.programs.wan.dpo.megatron_wan`` at import time (triggered by
+# ``_TeleboostTrainingWorker.__init__`` in teleboost.programs.wan.dpo.main).
+#
+# Mode selection (teleboost.programs.wan.dpo.main drives at most one):
+#   * default      — real_train_step for trainer.total_training_steps iters
+#   * smoke        — trainer.run_smoke_train_step=true
+#   * replay (dir) — trainer.phase3_replay_dir=<directory of .pt dumps>
+#   * replay (one) — trainer.phase3_replay_dump=<single .pt dump>
+model_type: video_diffusion
+
+model:
+  # WanModelConfig is a verl-native subclass of HFModelConfig that
+  # skips ``AutoConfig.from_pretrained`` (Wan is not HF-registered).
+  # See teleboost/programs/wan/dpo/wan_model_config.py for the full contract.
+  # path is treated as an opaque label — real Wan weights come from
+  # ``teletron_args.load`` below, loaded by megatron's
+  # ``load_checkpoint`` inside ``_build_megatron_module``.
+  _target_: teleboost.programs.wan.dpo.wan_model_config.WanModelConfig
+  path: wan2.1-t2v-1.3b
+  load_tokenizer: false
+
+engine:
+  # Inherited from defaults.engine=megatron.
+  use_remove_padding: false
+  use_fused_kernels: false
+  # ``forward_only=false`` exercises the optimizer build path.
+  # ``MegatronEngineWanVideo._init_device_mesh`` aliases the
+  # ``_INTRA_PARTIAL_DATA_PARALLEL_GROUP_WITH_CP`` group (megatron-core
+  # 0.16+ partial-DP group not created by teleboost's frozen
+  # parallel_state); the ``use_zero2`` / megatron-distributed dual-path
+  # ``_build_optimizer`` override is in the same file.
+  forward_only: false
+  # MegatronEngineWanVideo overrides _build_tf_config / _build_megatron_module
+  # so we DO NOT exercise mbridge — but verl's MegatronEngine.__init__
+  # still asserts use_mbridge=True so we keep the flag truthful while
+  # skipping the AutoBridge code path inside the override.
+  tensor_model_parallel_size: 1
+  pipeline_model_parallel_size: 1
+  context_parallel_size: 1
+  expert_tensor_parallel_size: 1
+  expert_model_parallel_size: 1
+  sequence_parallel: false  # only meaningful with TP > 1
+  dtype: bfloat16
+
+optim:
+  # Inherited from defaults.optim=megatron.
+  lr: 1.0e-7
+  # verl translates this into megatron lr_decay_steps; the lr scheduler
+  # build (verl.utils.megatron.optimizer.get_megatron_optimizer_param_scheduler)
+  # computes ``lr_warmup_steps = lr_warmup_steps_ratio * lr_decay_steps``
+  # which TypeErrors on None * float. Pin to ``trainer.total_training_steps``
+  # via OmegaConf interpolation so the scheduler can't drift from the
+  # outer loop length even on direct ``python -m teleboost.programs.wan.dpo.main``
+  # invocations (the shell launcher used to double-set both; now it
+  # only sets ``trainer.total_training_steps`` and this resolves it).
+  total_training_steps: ${trainer.total_training_steps}
+
+checkpoint:
+  _target_: verl.trainer.config.CheckpointConfig
+  save_contents: ["model", "optimizer", "extra"]
+  load_contents: ${checkpoint.save_contents}
+  mbridge_config: {}
+
+trainer:
+  default_local_dir: checkpoints/${trainer.project_name}/${trainer.experiment_name}
+  project_name: teleboost-dpo
+  experiment_name: dpo_run
+  total_training_steps: 1
+  logger: ["console"]
+  seed: 1
+  device: cuda
+  nnodes: 1
+  # Production train profile: 8 GPUs = 2 VAE + 6 DiT. Smoke / replay
+  # shell branches override down to 4-GPU.
+  n_gpus_per_node: 8
+
+ray_kwargs:
+  ray_init:
+    num_cpus: null
+
+# TeleTron runtime args — translated into `argparse.Namespace` and
+# stashed via `teleboost.engines.teletron.set_global_args` so DPO code reads
+# the same shape it expects from megatron-LM's `parse_args()`. Plumbed
+# into Ray worker actors via the `TELEBOOST_TELETRON_ARGS` env var (see
+# teleboost.programs.wan.dpo.main + teleboost/programs/wan/dpo/args_adapter.py).
+#
+# `config_path` is the Python dotted module path that `set_config()`
+# resolves to grab the Wan dit config (num_layers / dim / ffn_dim /
+# num_heads). `load` must point at a pre-converted teletron-format
+# Wan checkpoint produced by ``teleboost-convert-wan-to-teletron``.
+# real-train (production default) uses 14B I2V; smoke / replay use
+# 1.3B T2V. Conversion is the same command, just different src/dst:
+#   # real-train (14B I2V):
+#   teleboost-convert-wan-to-teletron \
+#       --src /path/to/Wan2.1-I2V-14B-480P/diffusion_pytorch_model.safetensors \
+#       --dst /path/to/Wan2.1-I2V-14B-480P-teletron
+#   # smoke / replay (1.3B T2V):
+#   teleboost-convert-wan-to-teletron \
+#       --src /path/to/Wan2.1-T2V-1.3B/diffusion_pytorch_model.safetensors \
+#       --dst /path/to/Wan2.1-T2V-1.3B-teletron
+# The launcher (``run_teleboost_dpo.sh``) fills `load` from the
+# `WAN_DIT_CKPT` env var. ``???`` is Hydra's required-but-unset
+# sentinel — running without overriding `load` will fail clearly.
+#
+# ``finetune``/``no_load_optim``/``no_load_rng`` are all True so
+# megatron's load_checkpoint loads model weights only — optimizer
+# state / RNG state / iteration counter restoration are skipped.
+teletron_args:
+  # Production Wan 14B I2V DPO config (full dataset + encoder block).
+  # Smoke / replay shell branches swap this for ``teleboost.programs.wan.dpo.wan_t2v_arch``
+  # (model-arch-only — no dataset needed). Production users must export
+  # WAN_DPO_DATA_DIR + WAN_T2V_1_3B_DIR + WAN_I2V_14B_DIR; the launcher
+  # validates all three.
+  config_path: teleboost.programs.wan.dpo.wan_dpo_i2v.config
+  load: ???
+  finetune: true
+  no_load_optim: true
+  no_load_rng: true
+  # 8-GPU 2-VAE + 6-DiT layout. VAE producer thread + DiT-side
+  # DistVAEConsumerBatchLoader; this is the only real-data loader path
+  # implemented for the DPO recipes. Smoke /
+  # replay shell branches override to ``distributed_vae=false`` +
+  # ``world_size=0`` because they synthesize / read from disk.
+  distributed_vae: true
+  distributed_vae_world_size: 2
+  consumer_models_num: 1
+  use_zero2: true
+  bf16: true
+  fp16: false
+  with_ema: false
+  # Single-microbatch default: num_microbatches =
+  # global_batch_size / (micro_batch_size * data_parallel_size).
+  # 8-GPU, 2-VAE, 6-DiT, micro=1 → global=6 → num_microbatches=1.
+  # Bump ``global_batch_size`` to widen the preference-pair window.
+  micro_batch_size: 1
+  global_batch_size: 6
+
+  # Precision-replay knobs (consumed by trainer.phase3_replay_* modes).
+  # ``teleboost.programs.wan.dpo.dpo_loss.forward_step``'s saved-input branch skips
+  # VAE+T5 encode and reads encoded latents / noise / training_target
+  # straight from disk when ``use_saved_inputs: true`` is set together
+  # with ``diffsynth_dump_root`` pointing at a saved-input dump
+  # directory. ``saved_pair_id`` picks which pair to replay.
+  use_saved_inputs: false
+  diffsynth_dump_root: null
+  saved_pair_id: 0
+  # Per-step bf16 tolerance for the replay-vs-reference compare.
+  compare_losses_rtol: 1.0e-3
+  compare_losses_atol: 1.0e-4
+  # Megatron core_transformer_config_from_args reads these — defaults
+  # mirror the standalone DPO launcher.
+  seq_length: 1024
+  max_position_embeddings: 1024
+  num_query_groups: null
+  rotary_percent: 1.0
+  rotary_base: 10000
+  attention_dropout: 0.0
+  hidden_dropout: 0.0
+  add_bias_linear: false
+  swiglu: true
+  normalization: RMSNorm
+  position_embedding_type: rope

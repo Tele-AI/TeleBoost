@@ -1,0 +1,10 @@
+# Optional Hopper FlashAttention-3 source pin. This is deliberately separate
+# from requirements.txt and pyproject extras because it is GPU/toolchain
+# specific and must never let pip replace the CUDA-matched PyTorch install.
+UPSTREAM_URL=https://github.com/Dao-AILab/flash-attention.git
+UPSTREAM_COMMIT=5835c733e7e9c07606b045255768e8a7e9e851bd
+UPSTREAM_SUBDIRECTORY=hopper
+CUTLASS_COMMIT=7127592069c2fe01b041e174ba4345ef9b279671
+PACKAGE=flash_attn_3
+VERSION=3.0.0
+BUILD_PROFILE=teleboost.wan.sm90

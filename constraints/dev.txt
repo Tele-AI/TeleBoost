@@ -1,0 +1,6 @@
+# Development/test tools validated with the TeleBoost test profiles.
+-c torch2.9-cu128.txt
+pre-commit==4.5.1
+py-spy==0.4.2
+pytest==9.0.2
+ruff==0.15.4

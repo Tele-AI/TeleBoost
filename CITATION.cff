@@ -1,0 +1,105 @@
+cff-version: 1.2.0
+title: "TeleBoost — unified DPO + GRPO post-training for video diffusion"
+message: "If you use this codebase, please cite the TeleBoost paper and the underlying algorithm papers."
+type: software
+authors:
+  - name: "TeleBoost contributors"
+    website: "https://github.com/Tele-AI/TeleBoost"
+repository-code: "https://github.com/Tele-AI/TeleBoost"
+license: Apache-2.0
+preferred-citation:
+  type: article
+  title: "TeleBoost: A Systematic Alignment Framework for High-Fidelity, Controllable, and Robust Video Generation"
+  authors:
+    - family-names: Liang
+      given-names: Yuanzhi
+    - family-names: Wu
+      given-names: "Xuan'er"
+    - family-names: Liu
+      given-names: Yirui
+    - family-names: Fang
+      given-names: Yijie
+    - family-names: Fan
+      given-names: Yizhen
+    - family-names: Hao
+      given-names: Ke
+    - family-names: Li
+      given-names: Rui
+    - family-names: Liu
+      given-names: Ruiying
+    - family-names: Ni
+      given-names: Ziqi
+    - family-names: Yu
+      given-names: Peng
+    - family-names: Wang
+      given-names: Yanbo
+    - family-names: Huang
+      given-names: Haibin
+    - family-names: Weng
+      given-names: Qizhen
+    - family-names: Zhang
+      given-names: Chi
+    - family-names: Li
+      given-names: Xuelong
+  year: 2026
+references:
+  - type: article
+    title: "DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models (GRPO)"
+    authors:
+      - name: "Shao et al."
+    year: 2024
+    url: "https://arxiv.org/abs/2402.03300"
+  - type: article
+    title: "DanceGRPO: Unleashing GRPO on Visual Generation"
+    authors:
+      - name: "Xue et al."
+    year: 2025
+    url: "https://arxiv.org/abs/2505.07818"
+  - type: article
+    title: "Flow-GRPO: Training Flow Matching Models via Online RL"
+    authors:
+      - name: "Liu et al."
+    year: 2025
+    url: "https://arxiv.org/abs/2505.05470"
+  - type: article
+    title: "GRPO-Guard: Stable Diffusion-Style RL by Bias and Step-size Correction"
+    authors:
+      - name: "Sun, Wang, et al."
+    year: 2025
+    url: "https://arxiv.org/abs/2510.22319"
+  - type: article
+    title: "Learning What to Trust: Bayesian Prior-Guided Optimization for Visual Generation"
+    authors:
+      - family-names: Liu
+        given-names: Ruiying
+      - family-names: Liang
+        given-names: Yuanzhi
+      - family-names: Huang
+        given-names: Haibin
+      - family-names: Yu
+        given-names: Tianshu
+      - family-names: Zhang
+        given-names: Chi
+    year: 2025
+    url: "https://arxiv.org/abs/2511.18919"
+    notes: "Accepted to CVPR 2026"
+  - type: article
+    title: "Seeing What Matters: Visual Preference Policy Optimization for Visual Generation"
+    authors:
+      - family-names: Ni
+        given-names: Ziqi
+      - family-names: Liang
+        given-names: Yuanzhi
+      - family-names: Li
+        given-names: Rui
+      - family-names: Zhou
+        given-names: Yi
+      - family-names: Huang
+        given-names: Haibin
+      - family-names: Zhang
+        given-names: Chi
+      - family-names: Li
+        given-names: Xuelong
+    year: 2025
+    url: "https://arxiv.org/abs/2511.18719"
+    notes: "Accepted to CVPR 2026"

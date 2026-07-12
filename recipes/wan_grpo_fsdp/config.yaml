@@ -1,0 +1,6 @@
+# Declarative recipes identity. Runtime defaults live in teleboost/config.
+program: wan.grpo.fsdp
+family: wan
+algorithm: grpo
+engine: fsdp
+policy: default

@@ -1,0 +1,11 @@
+# Version-update PRs are disabled on purpose: requirements.txt carries
+# load-bearing pins (deepspeed==0.17.5 etc.) documented as BIT-EXACT
+# alignment points — automatic bumps would break them. Security updates
+# remain enabled (they ignore open-pull-requests-limit: 0).
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0

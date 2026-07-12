@@ -1,0 +1,6 @@
+# Declarative recipes identity. Runtime defaults live in teleboost/config.
+program: wan.vipo.fsdp
+family: wan
+algorithm: vipo
+engine: fsdp
+policy: default

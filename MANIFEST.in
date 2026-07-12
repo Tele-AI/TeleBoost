@@ -1,0 +1,29 @@
+include INSTALL.md
+include LICENSE
+recursive-include LICENSES *.txt
+include MODEL_AND_DATA_LICENSES.md
+include NOTICE
+include README.md
+include SECURITY.md
+include SUPPORT_MATRIX.md
+include THIRD_PARTY_PROVENANCE.md
+include requirements.txt
+recursive-include constraints *.txt
+recursive-include recipes *.md *.yaml *.sh *.txt
+
+# The root sdist is a release source artifact, not a mirror of the checkout.
+# Vendored components, test/diagnostic programs, run outputs, and top-level
+# developer tools are intentionally outside its Apache-2.0 package boundary.
+prune third_party
+prune tests
+prune tools
+prune build
+prune dist
+prune outputs
+prune videos
+
+# Keep only the release procedure/checker in the sdist.  The installed wheel
+# excludes this non-runtime subtree as well.
+include tools/install_flash_attn_3.sh
+include tools/install_verl.sh
+recursive-include tools/release *.md *.py

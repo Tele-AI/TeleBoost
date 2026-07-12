@@ -1,0 +1,6 @@
+# Declarative recipes identity. Runtime defaults live in teleboost/config.
+program: wan.tempflow.fsdp
+family: wan
+algorithm: tempflow
+engine: fsdp
+policy: default
